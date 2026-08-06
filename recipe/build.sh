@@ -6,6 +6,10 @@ cp $BUILD_PREFIX/share/gnuconfig/config.sub config.fsf.sub
 shopt -s extglob
 chmod +x configure
 
+# GMP 6.3.0 predates C23; GCC 15 (riscv64) defaults to it and rejects
+# configure's compiler probes. Force the older standard.
+export CFLAGS="${CFLAGS} -std=gnu17"
+
 mkdir build
 cd build
 
