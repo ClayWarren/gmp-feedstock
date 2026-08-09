@@ -22,9 +22,11 @@ build:
 requirements:
   build:
     - gnuconfig
-    - {{ stdlib('c') }}
-    - {{ compiler('c') }}
+    - {{ stdlib('c') }}      # [not win]
+    - {{ compiler('c') }}    # [not win]
     - {{ compiler('cxx') }}  # [not win]
+    - {{ stdlib('m2w64_c') }}    # [win]
+    - {{ compiler('m2w64_c') }}  # [win]
     - {{ posix }}m4
     - {{ posix }}make
     - {{ posix }}base        # [build_platform.startswith("win-")]
