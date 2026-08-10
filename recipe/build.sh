@@ -3,7 +3,6 @@
 cp $BUILD_PREFIX/share/gnuconfig/config.guess config.fsf.guess
 cp $BUILD_PREFIX/share/gnuconfig/config.sub config.fsf.sub
 
-shopt -s extglob
 chmod +x configure
 
 # GMP 6.3.0 predates C23; GCC 15 (riscv64) defaults to it and rejects
@@ -60,6 +59,10 @@ if [[ "$target_platform" == "linux-ppc64le" ]]; then
     # couldn't find how to do it for arm64 and not sure whether that's beneficial.
     mkdir -p $PREFIX/lib/power9
     mkdir -p $PREFIX/lib/power10
-    cp $PWD/install$PREFIX/lib/libgmp.so.+([0-9]) $PREFIX/lib/power9
-    cp $PWD/install$PREFIX/lib/libgmp.so.+([0-9]) $PREFIX/lib/power10
+    for library in "$PWD/install$PREFIX/lib"/libgmp.so.*; do
+        if [[ "${library##*/}" =~ ^libgmp\.so\.[0-9]+$ ]]; then
+            cp "$library" "$PREFIX/lib/power9"
+            cp "$library" "$PREFIX/lib/power10"
+        fi
+    done
 fi

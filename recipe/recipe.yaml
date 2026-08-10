@@ -1,62 +1,97 @@
-{% set version = "6.3.0" %}
-{% if build_platform is undefined %}
-{% set build_platform = "linux-64" %}
-{% endif %}
-{% set posix = "m2-" if build_platform.startswith("win-") else '' %}
+schema_version: 1
+
+context:
+  version: "6.3.0"
 
 package:
   name: gmp
-  version: {{ version }}
+  version: ${{ version }}
 
 source:
   url:
-    - https://gmplib.org/download/gmp/gmp-{{ version }}.tar.xz
-    - https://ftp.gnu.org/gnu/gmp/gmp-{{ version }}.tar.xz
+    - https://gmplib.org/download/gmp/gmp-${{ version }}.tar.xz
+    - https://ftp.gnu.org/gnu/gmp/gmp-${{ version }}.tar.xz
   sha256: a3c2b80201b89e68616f4ad30bc66aee4927c3ce50e33929ca819d5c43538898
 
 build:
   number: 3
-  run_exports:
-    - {{ pin_subpackage("gmp") }}
+  script: build
 
 requirements:
   build:
     - gnuconfig
-    - {{ stdlib('c') }}      # [not win]
-    - {{ compiler('c') }}    # [not win]
-    - {{ compiler('cxx') }}  # [not win]
-    - {{ stdlib('m2w64_c') }}    # [win]
-    - {{ compiler('m2w64_c') }}  # [win]
-    - {{ posix }}m4
-    - {{ posix }}make
-    - {{ posix }}base        # [build_platform.startswith("win-")]
-    - {{ posix }}diffutils   # [build_platform.startswith("win-")]
-    - gendef                 # [win]
-  host:
-  run_constrained:
-    - mpir <0.0a0   # [win]
+    - if: unix
+      then:
+        - ${{ stdlib('c') }}
+        - ${{ compiler('c') }}
+        - ${{ compiler('cxx') }}
+        - m4
+        - make
+    - if: win
+      then:
+        - ${{ stdlib('m2w64_c') }}
+        - ${{ compiler('m2w64_c') }}
+        - m2-m4
+        - m2-make
+        - m2-base
+        - m2-diffutils
+        - gendef
+  run_exports:
+    - ${{ pin_subpackage('gmp') }}
+  run_constraints:
+    - if: win
+      then: mpir <0.0a0
 
-test:
-  requires:
-    - {{ compiler('c') }}
-    - {{ stdlib('c') }}
-
-  files:
-    - test.c
-
-  commands:
-    - test ! -f ${PREFIX}/lib/libgmp.a      # [unix]
-    - test -f ${PREFIX}/lib/libgmp.dylib    # [osx]
-    - test -f ${PREFIX}/lib/libgmp.so       # [linux]
-    - test ! -f ${PREFIX}/lib/libgmpxx.a    # [unix]
-    - test -f ${PREFIX}/lib/libgmpxx.dylib  # [osx]
-    - test -f ${PREFIX}/lib/libgmpxx.so     # [linux]
-    - if not exist %LIBRARY_BIN%\libgmp-10.dll exit 1  # [win]
-    - if not exist %LIBRARY_LIB%\libgmp.dll.a exit 1   # [win]
-    - if not exist %LIBRARY_LIB%\gmp.lib exit 1        # [win]
+tests:
+  - package_contents:
+      include:
+        - gmp.h
+      lib:
+        - if: unix
+          then:
+            - gmp
+            - gmpxx
+      files:
+        exists:
+          - if: win
+            then:
+              - Library/bin/libgmp-10.dll
+              - Library/lib/libgmp.dll.a
+              - Library/lib/gmp.lib
+        not_exists:
+          - if: unix
+            then:
+              - lib/libgmp.a
+              - lib/libgmpxx.a
+  - if: unix
+    then:
+      files:
+        recipe:
+          - test.c
+      requirements:
+        build:
+          - ${{ compiler('c') }}
+          - ${{ stdlib('c') }}
+      script:
+        - $CC -I$PREFIX/include -L$PREFIX/lib test.c -lgmp -Wl,-rpath,$PREFIX/lib -o test.out
+        - if: build_platform == target_platform
+          then: ./test.out
+  - if: win
+    then:
+      files:
+        recipe:
+          - test.c
+      requirements:
+        build:
+          - ${{ compiler('c') }}
+          - ${{ stdlib('c') }}
+      script:
+        - cl test.c /I%LIBRARY_INC% %LIBRARY_LIB%\gmp.lib /Fe:test.exe
+        - test.exe
 
 about:
-  home: http://gmplib.org/
+  homepage: http://gmplib.org/
+  repository: https://gmplib.org/repo/gmp/
   license: GPL-2.0-or-later OR LGPL-3.0-or-later
   license_file: COPYING.LESSERv3
   summary: The GNU multiprecision library.
