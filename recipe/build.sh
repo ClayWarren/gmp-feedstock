@@ -1,4 +1,7 @@
 #!/bin/bash
+
+set -ex
+
 # Get an updated config.sub and config.guess
 cp $BUILD_PREFIX/share/gnuconfig/config.guess config.fsf.guess
 cp $BUILD_PREFIX/share/gnuconfig/config.sub config.fsf.sub
@@ -17,7 +20,7 @@ if [[ "$target_platform" == "linux-ppc64le" ]]; then
   # building for power8 and uses an older POWER architecture.
   CONFIGURE_ARGS="--host=power8-pc-linux-gnu"
 else
-  CONFIGURE_ARGS="--host=$HOST"
+  CONFIGURE_ARGS="--host=$CONDA_TOOLCHAIN_HOST"
 fi
 
 if [[ "$target_platform" == "win-64" ]]; then
@@ -41,7 +44,7 @@ make install
 
 if [[ "$target_platform" == "win-64" ]]; then
   gendef $PREFIX/bin/libgmp-10.dll
-  $HOST-dlltool -d libgmp-10.def -l $PREFIX/lib/gmp.lib
+  $CONDA_TOOLCHAIN_HOST-dlltool -d libgmp-10.def -l $PREFIX/lib/gmp.lib
 fi
 
 if [[ "$target_platform" == "linux-ppc64le" ]]; then
