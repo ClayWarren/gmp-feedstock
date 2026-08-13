@@ -88,6 +88,9 @@ tests:
       script:
         - cl test.c /I%LIBRARY_INC% %LIBRARY_LIB%\gmp.lib /Fe:test.exe
         - test.exe
+        # Give Windows time to release the executable before rattler-build removes the test directory.
+        - ping 127.0.0.1 -n 3 > nul
+        - del /F /Q test.exe test.obj
 
 about:
   homepage: http://gmplib.org/
