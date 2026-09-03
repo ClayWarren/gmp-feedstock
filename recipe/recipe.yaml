@@ -19,6 +19,7 @@ source:
         - patches/0001-use-asmflags-for-assembler.patch
         - patches/0002-support-arm64-coff.patch
         - patches/0003-fix-msvc-dll-symbols.patch
+        - patches/0004-disable-unavailable-spinner.patch
 
 build:
   number: 3

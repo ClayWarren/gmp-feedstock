@@ -1,0 +1,18 @@
+# GMP already disables its test spinner when alarm or SIGALRM is unavailable.
+# Avoid probing POSIX terminal APIs when the spinner cannot function anyway.
+diff --git a/tests/spinner.c b/tests/spinner.c
+index fdf42b4..c0d542e 100644
+--- a/tests/spinner.c
++++ b/tests/spinner.c
+@@ -78,7 +78,11 @@
+ void
+ spinner_init (void)
+ {
++#if ! HAVE_ALARM || ! defined (SIGALRM)
++  spinner_wanted = 0;
++#else
+   spinner_wanted = isatty (STDOUT_FILENO);
++#endif
+   if (spinner_wanted == -1)
+     abort ();
+ 
