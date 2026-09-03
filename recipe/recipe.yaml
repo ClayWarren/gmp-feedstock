@@ -12,6 +12,13 @@ source:
     - https://gmplib.org/download/gmp/gmp-${{ version }}.tar.xz
     - https://ftp.gnu.org/gnu/gmp/gmp-${{ version }}.tar.xz
   sha256: a3c2b80201b89e68616f4ad30bc66aee4927c3ce50e33929ca819d5c43538898
+  patches:
+    - if: target_platform == "win-arm64"
+      then:
+        # Adapted from vcpkg's tested GMP 6.3.0 ARM64-MSVC support.
+        - patches/0001-use-asmflags-for-assembler.patch
+        - patches/0002-support-arm64-coff.patch
+        - patches/0003-fix-msvc-dll-symbols.patch
 
 build:
   number: 3
@@ -27,7 +34,7 @@ requirements:
         - ${{ compiler('cxx') }}
         - m4
         - make
-    - if: win
+    - if: target_platform == "win-64"
       then:
         - ${{ stdlib('m2w64_c') }}
         - ${{ compiler('m2w64_c') }}
@@ -36,6 +43,17 @@ requirements:
         - m2-base
         - m2-diffutils
         - gendef
+    - if: target_platform == "win-arm64"
+      then:
+        - ${{ stdlib('c') }}
+        - ${{ compiler('c') }}
+        - m2-autoconf
+        - m2-automake-wrapper
+        - m2-libtool
+        - m2-m4
+        - m2-make
+        - m2-base
+        - m2-diffutils
   run_exports:
     - ${{ pin_subpackage('gmp') }}
   run_constraints:
@@ -56,8 +74,10 @@ tests:
           - if: win
             then:
               - Library/bin/libgmp-10.dll
-              - Library/lib/libgmp.dll.a
               - Library/lib/gmp.lib
+          - if: target_platform == "win-64"
+            then:
+              - Library/lib/libgmp.dll.a
         not_exists:
           - if: unix
             then:
@@ -86,11 +106,37 @@ tests:
           - ${{ compiler('c') }}
           - ${{ stdlib('c') }}
       script:
-        - cl test.c /I%LIBRARY_INC% %LIBRARY_LIB%\gmp.lib /Fe:test.exe
-        - test.exe
-        # Give Windows time to release the executable before rattler-build removes the test directory.
-        - ping 127.0.0.1 -n 3 > nul
-        - del /F /Q test.exe test.obj
+        - if: target_platform == "win-arm64"
+          then:
+            - call %CC% %CFLAGS% -I"%LIBRARY_INC%" test.c -L"%LIBRARY_LIB%" -lgmp %LDFLAGS% -o test-clang.exe
+            - if errorlevel 1 exit /b 1
+            - dumpbin /imports test-clang.exe | findstr /I /C:"libgmp-10.dll"
+            - if errorlevel 1 exit /b 1
+            - dumpbin /headers test-clang.exe | findstr /I /C:"AA64 machine (ARM64)"
+            - if errorlevel 1 exit /b 1
+            - dumpbin /headers "%LIBRARY_BIN%\libgmp-10.dll" | findstr /I /C:"AA64 machine (ARM64)"
+            - if errorlevel 1 exit /b 1
+            - test-clang.exe
+            - if errorlevel 1 exit /b 1
+            - cl test.c /I%LIBRARY_INC% %LIBRARY_LIB%\gmp.lib /Fe:test-msvc.exe
+            - if errorlevel 1 exit /b 1
+            - dumpbin /imports test-msvc.exe | findstr /I /C:"libgmp-10.dll"
+            - if errorlevel 1 exit /b 1
+            - dumpbin /headers test-msvc.exe | findstr /I /C:"AA64 machine (ARM64)"
+            - if errorlevel 1 exit /b 1
+            - test-msvc.exe
+            - if errorlevel 1 exit /b 1
+            # Give Windows time to release the executables before rattler-build removes the test directory.
+            - ping 127.0.0.1 -n 3 > nul
+            - del /F /Q test-clang.exe test-msvc.exe test.obj
+          else:
+            - cl test.c /I%LIBRARY_INC% %LIBRARY_LIB%\gmp.lib /Fe:test.exe
+            - if errorlevel 1 exit /b 1
+            - test.exe
+            - if errorlevel 1 exit /b 1
+            # Give Windows time to release the executable before rattler-build removes the test directory.
+            - ping 127.0.0.1 -n 3 > nul
+            - del /F /Q test.exe test.obj
 
 about:
   homepage: http://gmplib.org/

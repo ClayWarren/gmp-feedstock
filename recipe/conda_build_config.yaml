@@ -1,0 +1,4 @@
+c_compiler:
+  - clang  # [win and arm64]
+c_compiler_version:
+  - 23.1   # [win and arm64]
