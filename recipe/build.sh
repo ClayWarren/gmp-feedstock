@@ -84,7 +84,15 @@ fi
 
 make -j${CPU_COUNT}
 if [[ "${CONDA_BUILD_CROSS_COMPILATION}" != "1" ]]; then
-  make check -j${CPU_COUNT}
+  if ! make check -j${CPU_COUNT}; then
+    if [[ "$target_platform" == "win-arm64" ]]; then
+      while IFS= read -r test_log; do
+        echo "===== $test_log ====="
+        cat "$test_log"
+      done < <(find tests -type f -name '*.log' -print | sort)
+    fi
+    exit 1
+  fi
 fi
 make install
 
