@@ -84,6 +84,10 @@ fi
 
 make -j${CPU_COUNT}
 if [[ "${CONDA_BUILD_CROSS_COMPILATION}" != "1" ]]; then
+  if [[ "$target_platform" == "win-arm64" ]]; then
+    # The tests link against the just-built DLL before it is installed.
+    export PATH="$PWD/.libs:$PATH"
+  fi
   if ! make check -j${CPU_COUNT}; then
     if [[ "$target_platform" == "win-arm64" ]]; then
       while IFS= read -r test_log; do
