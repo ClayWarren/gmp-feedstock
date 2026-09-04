@@ -15,7 +15,8 @@ source:
   patches:
     - if: target_platform == "win-arm64"
       then:
-        # Adapted from vcpkg's tested GMP 6.3.0 ARM64-MSVC support.
+        # The ARM64 COFF and MSVC DLL portions are adapted from vcpkg's
+        # tested GMP 6.3.0 support.
         - patches/0001-use-asmflags-for-assembler.patch
         - patches/0002-support-arm64-coff.patch
         - patches/0003-fix-msvc-dll-symbols.patch
