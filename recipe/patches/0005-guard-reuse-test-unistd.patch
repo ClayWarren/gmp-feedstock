@@ -1,0 +1,23 @@
+# The reuse test is suppressed when GMP is built as a Windows DLL, so its
+# progress display never uses isatty or STDOUT_FILENO on that path.  Keep the
+# POSIX-only header in the non-DLL branch where those calls are compiled.
+diff --git a/tests/mpz/reuse.c b/tests/mpz/reuse.c
+--- a/tests/mpz/reuse.c
++++ b/tests/mpz/reuse.c
+@@ -27,7 +27,6 @@
+ #include <stdio.h>
+ #include <stdlib.h>
+ #include <string.h>
+-#include <unistd.h>
+ 
+ #include "gmp-impl.h"
+ #include "tests.h"
+@@ -48,6 +47,8 @@
+ 
+ #else /* ! DLL_EXPORT */
+ 
++#include <unistd.h>
++
+ void dump (const char *, mpz_t, mpz_t, mpz_t);
+ 
+ typedef void (*dss_func) (mpz_ptr, mpz_srcptr, mpz_srcptr);
