@@ -74,8 +74,13 @@ tests:
         exists:
           - if: win
             then:
-              - Library/bin/libgmp-10.dll
               - Library/lib/gmp.lib
+          - if: target_platform == "win-64"
+            then:
+              - Library/bin/libgmp-10.dll
+          - if: target_platform == "win-arm64"
+            then:
+              - Library/bin/gmp-10.dll
           - if: target_platform == "win-64"
             then:
               - Library/lib/libgmp.dll.a
@@ -111,17 +116,17 @@ tests:
           then:
             - call %CC% %CFLAGS% -I"%LIBRARY_INC%" test.c -L"%LIBRARY_LIB%" -lgmp %LDFLAGS% -o test-clang.exe
             - if errorlevel 1 exit /b 1
-            - dumpbin /imports test-clang.exe | findstr /I /C:"libgmp-10.dll"
+            - dumpbin /imports test-clang.exe | findstr /I /C:"gmp-10.dll"
             - if errorlevel 1 exit /b 1
             - dumpbin /headers test-clang.exe | findstr /I /C:"AA64 machine (ARM64)"
             - if errorlevel 1 exit /b 1
-            - dumpbin /headers "%LIBRARY_BIN%\libgmp-10.dll" | findstr /I /C:"AA64 machine (ARM64)"
+            - dumpbin /headers "%LIBRARY_BIN%\gmp-10.dll" | findstr /I /C:"AA64 machine (ARM64)"
             - if errorlevel 1 exit /b 1
             - test-clang.exe
             - if errorlevel 1 exit /b 1
             - cl test.c /I%LIBRARY_INC% %LIBRARY_LIB%\gmp.lib /Fe:test-msvc.exe
             - if errorlevel 1 exit /b 1
-            - dumpbin /imports test-msvc.exe | findstr /I /C:"libgmp-10.dll"
+            - dumpbin /imports test-msvc.exe | findstr /I /C:"gmp-10.dll"
             - if errorlevel 1 exit /b 1
             - dumpbin /headers test-msvc.exe | findstr /I /C:"AA64 machine (ARM64)"
             - if errorlevel 1 exit /b 1

@@ -30,22 +30,44 @@ if [[ "$target_platform" == "win-arm64" ]]; then
   autoreconf -vfi
 
   # Libtool mistakes clang.exe for cl.exe because its compiler-name check is
-  # prefix based. Keep its complete export list, but pass each MSVC-style
-  # export option through the GNU Clang driver to LLD explicitly.
+  # prefix based. Restore the GNU-driver output syntax used by GMP's bundled
+  # libtool and pass each MSVC-style export option to LLD explicitly.
+  old_output_template='-Fe$output_objdir/$soname'
+  new_output_template='-o $output_objdir/$soname'
+  old_tool_output_template='-Fe$tool_output_objdir$soname'
+  new_tool_output_template='-o $tool_output_objdir$soname'
   old_export_template='s/^/-link -EXPORT:/'
   new_export_template='s/^/-Xlinker -EXPORT:/'
+  old_output_count=$(grep -Fc -- "$old_output_template" configure || true)
+  initial_new_output_count=$(grep -Fc -- "$new_output_template" configure || true)
+  old_tool_output_count=$(grep -Fc -- "$old_tool_output_template" configure || true)
+  initial_new_tool_output_count=$(grep -Fc -- "$new_tool_output_template" configure || true)
   old_export_count=$(grep -Fc -- "$old_export_template" configure || true)
-  if [[ "$old_export_count" -ne 2 ]]; then
-    echo "Expected two libtool Windows export templates, found $old_export_count" >&2
+  initial_new_export_count=$(grep -Fc -- "$new_export_template" configure || true)
+  if [[ "$old_output_count" -ne 1 || "$old_tool_output_count" -ne 1 || "$old_export_count" -ne 2 ]]; then
+    echo "Unexpected libtool Windows template counts: output=$old_output_count, tool_output=$old_tool_output_count, export=$old_export_count" >&2
     exit 1
   fi
-  sed 's|s/^/-link -EXPORT:/|s/^/-Xlinker -EXPORT:/|g' configure > configure.fixed
+  sed \
+    -e 's|-Fe$output_objdir/$soname|-o $output_objdir/$soname|g' \
+    -e 's|-Fe$tool_output_objdir$soname|-o $tool_output_objdir$soname|g' \
+    -e 's|s/^/-link -EXPORT:/|s/^/-Xlinker -EXPORT:/|g' \
+    configure > configure.fixed
   mv configure.fixed configure
   chmod +x configure
+  old_output_count=$(grep -Fc -- "$old_output_template" configure || true)
+  new_output_count=$(grep -Fc -- "$new_output_template" configure || true)
+  old_tool_output_count=$(grep -Fc -- "$old_tool_output_template" configure || true)
+  new_tool_output_count=$(grep -Fc -- "$new_tool_output_template" configure || true)
   old_export_count=$(grep -Fc -- "$old_export_template" configure || true)
   new_export_count=$(grep -Fc -- "$new_export_template" configure || true)
-  if [[ "$old_export_count" -ne 0 || "$new_export_count" -ne 2 ]]; then
-    echo "Failed to correct both libtool Windows export templates" >&2
+  if [[ "$old_output_count" -ne 0 || \
+        "$new_output_count" -ne $((initial_new_output_count + 1)) || \
+        "$old_tool_output_count" -ne 0 || \
+        "$new_tool_output_count" -ne $((initial_new_tool_output_count + 1)) || \
+        "$old_export_count" -ne 0 || \
+        "$new_export_count" -ne $((initial_new_export_count + 2)) ]]; then
+    echo "Failed to correct all libtool Windows compiler templates" >&2
     exit 1
   fi
 fi
@@ -83,6 +105,13 @@ fi
   $CONFIGURE_ARGS || (cat config.log; exit 1)
 
 make -j${CPU_COUNT}
+if [[ "$target_platform" == "win-arm64" ]]; then
+  if [[ ! -f ".libs/gmp-10.dll" || ! -f ".libs/gmp.dll.lib" ]]; then
+    echo "GMP did not produce the expected native DLL and import library" >&2
+    find .libs -maxdepth 1 -type f -print >&2
+    exit 1
+  fi
+fi
 if [[ "${CONDA_BUILD_CROSS_COMPILATION}" != "1" ]]; then
   if [[ "$target_platform" == "win-arm64" ]]; then
     # The tests link against the just-built DLL before it is installed.
@@ -104,11 +133,21 @@ if [[ "$target_platform" == "win-64" ]]; then
   gendef $PREFIX/bin/libgmp-10.dll
   $CONDA_TOOLCHAIN_HOST-dlltool -d libgmp-10.def -l $PREFIX/lib/gmp.lib
 elif [[ "$target_platform" == "win-arm64" ]]; then
-  if [[ -f "$PREFIX/lib/libgmp.dll.lib" ]]; then
+  # Native MSVC-style libtool names the DLL and import library without the
+  # MinGW-only lib prefix. Put the DLL on PATH and expose the conventional
+  # conda-forge gmp.lib name to consumers.
+  if [[ -f "$PREFIX/lib/gmp-10.dll" ]]; then
+    mkdir -p "$PREFIX/bin"
+    mv "$PREFIX/lib/gmp-10.dll" "$PREFIX/bin/gmp-10.dll"
+  fi
+  if [[ -f "$PREFIX/lib/gmp.dll.lib" ]]; then
+    mv "$PREFIX/lib/gmp.dll.lib" "$PREFIX/lib/gmp.lib"
+  elif [[ -f "$PREFIX/lib/libgmp.dll.lib" ]]; then
     mv "$PREFIX/lib/libgmp.dll.lib" "$PREFIX/lib/gmp.lib"
-  elif [[ ! -f "$PREFIX/lib/gmp.lib" ]]; then
-    echo "GMP did not install an MSVC import library" >&2
-    find "$PREFIX/lib" -maxdepth 1 -type f -print >&2
+  fi
+  if [[ ! -f "$PREFIX/bin/gmp-10.dll" || ! -f "$PREFIX/lib/gmp.lib" ]]; then
+    echo "GMP did not install the expected native DLL and import library" >&2
+    find "$PREFIX/bin" "$PREFIX/lib" -maxdepth 1 -type f -print >&2
     exit 1
   fi
 fi
