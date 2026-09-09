@@ -1,0 +1,33 @@
+name: Retain native GMP prerequisite
+on:
+  push:
+    branches: [codex/mpfr-prerequisite-validation]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  native:
+    runs-on: windows-11-arm
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Provision emulated orchestration tools
+        shell: pwsh
+        run: |
+          if ($env:PROCESSOR_ARCHITECTURE -ne 'ARM64') { throw 'Expected ARM64 runner' }
+          $env:CONDA_SUBDIR = 'win-64'
+          Invoke-WebRequest https://github.com/mamba-org/micromamba-releases/releases/download/1.5.10-0/micromamba-win-64 -OutFile "$env:RUNNER_TEMP\micromamba.exe"
+          & "$env:RUNNER_TEMP\micromamba.exe" create -y -p C:\gmp-tools -c conda-forge python=3.14 rattler-build
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Build native GMP and run its tests
+        shell: cmd
+        run: |
+          set "PATH=C:\gmp-tools;C:\gmp-tools\Library\bin;C:\gmp-tools\Scripts;%PATH%"
+          set "CONDA_SUBDIR=win-arm64"
+          rattler-build build -r recipe -m .ci_support\win_arm64_.yaml --build-platform win-arm64 --target-platform win-arm64 --output-dir C:\gmp-output --channel-priority strict
+          if errorlevel 1 exit /b 1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: gmp-win-arm64
+          path: C:/gmp-output/win-arm64/*.conda
+          if-no-files-found: error
