@@ -17,12 +17,13 @@ jobs:
           if ($env:PROCESSOR_ARCHITECTURE -ne 'ARM64') { throw 'Expected ARM64 runner' }
           $env:CONDA_SUBDIR = 'win-64'
           Invoke-WebRequest https://github.com/mamba-org/micromamba-releases/releases/download/1.5.10-0/micromamba-win-64 -OutFile "$env:RUNNER_TEMP\micromamba.exe"
-          & "$env:RUNNER_TEMP\micromamba.exe" create -y -p C:\gmp-tools -c conda-forge python=3.14 rattler-build
+          & "$env:RUNNER_TEMP\micromamba.exe" create -y -p C:\gmp-tools -c conda-forge python=3.14 conda rattler-build
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
       - name: Build native GMP and run its tests
         shell: cmd
         run: |
-          set "PATH=C:\gmp-tools;C:\gmp-tools\Library\bin;C:\gmp-tools\Scripts;%PATH%"
+          call C:\gmp-tools\Scripts\activate.bat
+          if errorlevel 1 exit /b 1
           set "CONDA_SUBDIR=win-arm64"
           rattler-build build -r recipe -m .ci_support\win_arm64_.yaml --build-platform win-arm64 --target-platform win-arm64 --output-dir C:\gmp-output --channel-priority strict
           if errorlevel 1 exit /b 1
