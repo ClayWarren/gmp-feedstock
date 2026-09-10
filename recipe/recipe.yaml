@@ -22,6 +22,7 @@ source:
         - patches/0003-fix-msvc-dll-symbols.patch
         - patches/0004-disable-unavailable-spinner.patch
         - patches/0005-guard-reuse-test-unistd.patch
+        - patches/0006-preserve-printf-null-characters.patch
 
 build:
   number: 3
@@ -116,7 +117,7 @@ tests:
       script:
         - if: target_platform == "win-arm64"
           then:
-            - call %CC% %CFLAGS% -I"%LIBRARY_INC%" test.c -L"%LIBRARY_LIB%" -lgmp %LDFLAGS% -o test-clang.exe
+            - call %CC% %CFLAGS% -DGMP_TEST_NULL_OUTPUT -I"%LIBRARY_INC%" test.c -L"%LIBRARY_LIB%" -lgmp %LDFLAGS% -o test-clang.exe
             - if errorlevel 1 exit /b 1
             - dumpbin /imports test-clang.exe | findstr /I /C:"gmp-10.dll"
             - if errorlevel 1 exit /b 1
@@ -126,7 +127,7 @@ tests:
             - if errorlevel 1 exit /b 1
             - test-clang.exe
             - if errorlevel 1 exit /b 1
-            - cl test.c /I%LIBRARY_INC% %LIBRARY_LIB%\gmp.lib /Fe:test-msvc.exe
+            - cl /DGMP_TEST_NULL_OUTPUT test.c /I%LIBRARY_INC% %LIBRARY_LIB%\gmp.lib /Fe:test-msvc.exe
             - if errorlevel 1 exit /b 1
             - dumpbin /imports test-msvc.exe | findstr /I /C:"gmp-10.dll"
             - if errorlevel 1 exit /b 1
